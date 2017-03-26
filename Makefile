@@ -1,13 +1,13 @@
 SHELL		=  /bin/bash
-EMULATIONBAUD	=  9600
+EMULATIONBAUD=  9600
 ESPPORT		?= /dev/ttyUSB0
 
 ESPTOOL		=  /opt/esptool/esptool.py
-ASM		=  /usr/bin/z80asm
+ASM			=  /usr/bin/z80asm
 SERIAL		=  /usr/bin/putty
-SED		=  /bin/sed
+SED			=  /bin/sed
 
-TARGET		= XMZ
+TARGET		= XR
 SRCS		= $(wildcard *.Z80)
 DRIVE		= J:
 
