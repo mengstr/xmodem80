@@ -1,9 +1,9 @@
 ;*****************************************************************************
-; XMZ - Xmodem for Z80 CP/M 2.2 using CON:
+; XR - Xmodem Receive for Z80 CP/M 2.2 using CON:
 ; Copyright 2017 Mats Engstrom, SmallRoomLabs
+;
+; Licensed under the MIT license
 ;*****************************************************************************
-
-
 ;
 ;	Common entry points and locations
 ;
@@ -12,6 +12,13 @@ BDOS:	EQU 	0005h	; BDOS function vector
 DFCB:	EQU	5CH	; Default File Control Block
 DFCBcr:	EQU 	DFCB+32 ; Current record
 dbuf:	EQU	0080h
+
+;
+; BIOS vectors
+;
+CONST:	EQU 	0f106h	; A=0 if no character is ready, 0FFh if one is
+CONIN:	EQU	0f109h	; Wait until character ready available and return in A
+CONOUT:	EQU	0f10ch	; Write the character in C to the screen
 
 ;
 ; BDOS function codes
@@ -56,23 +63,168 @@ PUTDMA:	 EQU	26	; Set DMA Address DE=addr
 ;LOGOFF: EQU	37	; Reset Drive DE=drivevector
 ;WTSPECL:EQU	40	; Write Random with Zero Fill DE=FCBaddr A<status
 
-
 ;
-; ASCII key codes
+; ASCII codes
 ;
 LF:	EQU	'J'-40h	; ^J LF
 CR: 	EQU 	'M'-40h	; ^M CR/ENTER
+SOH:	EQU	'A'-40h	; ^A CTRL-A
+EOT:	EQU	'D'-40h	; ^D = End of Transmission
+ACK:	EQU	'F'-40h	; ^F = Positive Acknowledgement
+NAK:	EQU	'U'-40h	; ^U = Negative Acknowledgement
+CAN:	EQU	'X'-40h	; ^X = Cancel
 
 ;
 ; Start of code
 ;
 	ORG 0100h
-	jp	Start
 
-Start:
+	ld	HL,msgHeader	; Print a greeting
+	call	PrintString0
+
+	ld 	A,1		; The first packet is number 1
+	ld 	(pktNo),A
+	ld 	A,255-1		; Also store the 1-complement of it
+	ld 	(pktNo1c),A
+
+GetNewPacket:
+	ld	A,10		; We only retry 10 times before giving up
+	ld 	(retrycnt),A
+
+NPloop:
+	call	CONOUT
+	ld 	A,10		; 10 Seconds of timeout before each new block
+	call	GetCharTmo
+	jp 	NC,NoBlockTimeout
+
+	ld	HL,retrycnt	; Reached max number of retries?
+	dec 	(HL)
+	jp 	Z,Failure	; Yes, print message and exit
+
+	ld 	C,NAK		; Send a NAK to the uploader
+	call	CONOUT
+	jp 	NPloop
+
+NoBlockTimeout:
+	cp	a,EOT		; Did uploader say we're finished?
+	jp	Z,Done		; Yes, then we're done
+	cp 	A,CAN		; Uploader wants to abort transfer?
+	jp 	Z,Cancelled	; Yes, then we're also done
+	cp	A,SOH		; Did we get a start-of-new-packet?
+	jp	NZ,NPloop	; No, go back and try again
+
+	ld	HL,packet	; Save the received char into the...
+	ld	(HL),A		; ...packet bufer
+	inc 	HL
+	push 	HL
+	ld 	B,131		; Get 131 more characters for a full packet
+GetRestOfPacket:
+	push 	BC
+	ld 	A,1
+	call	GetCharTmo
+	pop 	BC
+
+	pop	HL
+	ld	(HL),A
+	inc 	HL
+	push 	HL
+
+	djnz	GetRestOfPacket
+
+	ld	HL,pktNo	; Update the packet counters
+	inc 	(HL)
+	ld	HL,pktNo1c
+	dec	(HL)
+
+	ld 	C,ACK		; Tell uploader that we're happy with with
+	call	CONOUT		; packet and go back and fetch some more
+	jp	GetNewPacket
+
+
+Failure:
+	ld 	HL,msgFailure
+	jp 	PrintString0	; Prints message and exits from program
+
+Cancelled:
+	ld 	HL,msgCancel
+	jp 	PrintString0	; Prints message and exits from program
+
+Done:
+	ld	A,ACK		; Tell uploader we're done
+	call	CONOUT
+	ld 	HL,msgSuccess
+	jp 	PrintString0	; Prints message and exits from program
+
+
+; Waits for up to A seconds for a character to become available and
+; returns it in A without echo and Carry clear. If timeout then Carry
+; it set.
+;
+GetCharTmo:
+	ld 	B,A
+GCtmoa:
+	push	BC
+	ld	B,255
+GCtmob:
+	push	BC
+	ld	B,255
+GCtmoc:
+	push	BC
+	call	CONST
+	cp	00h		; A char available?
+	jp 	NZ,GotChar	; Yes, get out of loop
+	ld	HL,(0)		; Waste some cycles
+	ld	HL,(0)		; ...
+	ld	HL,(0)		; ...
+	ld	HL,(0)		; ...
+	ld	HL,(0)		; ...
+	ld	HL,(0)		; ...
+	pop	BC
+	djnz	GCtmoc
+	pop	BC
+	djnz	GCtmob
+	pop	BC
+	djnz	GCtmoa
+	scf 			; Set carry signals timeout
+	ret
+
+GotChar:
+	pop	BC
+	pop	BC
+	pop	BC
+	call	CONIN
+	or 	A 		; Clear Carry signals success
+	ret
+
+
+;
+; Print message at HL until 0
+;
+PrintString0:
+	ld	A,(HL)
+	or	A		; Check if got zero?
+	ret	Z		; If zero return to caller
+	ld 	C,A
+	call	CONOUT		; else print the character
+	inc	HL
+	jp	PrintString0
+
+
+
+;
+; Message strings
+;
+msgHeader: DB 	'CP/M XR - Xmodem receive v0.1',CR,LF,0
+msgFailure:DB	CR,LF,'File reception failed',CR,LF,0
+msgCancel: DB	CR,LF,'File reception cancelled',CR,LF,0
+msgSuccess:DB	CR,LF,'File received successfully',CR,LF,0
 
 ;
 ; Variables
 ;
+retrycnt:DS 	1	; Counter for retries before giving up
+pktNo:	 DS 	1 	; Current packet Number
+pktNo1c: DS 	1 	; Current packet Number 1-complemented
+packet:	 DS 	132	; SOH,PacketNo,-PacketNo,data*128,chksum
 
 	END
