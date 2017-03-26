@@ -1,0 +1,8 @@
+// Place your settings in this file to overwrite default and user settings.
+{
+    "[z80-asm]": {
+        "editor.quickSuggestions": false,
+        "editor.rulers": [80]
+    } 
+
+}
