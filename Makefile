@@ -4,7 +4,7 @@ ESPPORT		?= /dev/ttyUSB0
 
 ESPTOOL		=  /opt/esptool/esptool.py
 ASM			=  /usr/bin/z80asm
-SERIAL		=  /usr/bin/putty
+SERIAL		=  minicom -b -D $(ESPPORT) $(EMULATIONBAUD)
 SED			=  /bin/sed
 
 TARGET		= XR
@@ -19,7 +19,7 @@ full: clean flash
 
 $(TARGET).hex: $(SRCS)
 	@echo [Z80ASM] $<
-	@$(ASM) $(FLAGSHEX) $(TARGET).Z80 -o tmp1.tmp
+	@$(ASM) $(FLAGSHEX) $(TARGET).Z80 -l$(TARGET).lst -o tmp1.tmp
 	@srec_cat tmp1.tmp -binary -offset 0x100 -o tmp2.tmp -intel
 	@tail -n +2 tmp2.tmp > $@
 	@sed -i '/:......000000000000000000000000000000000000000000000000000000000000000000..$$/d' $@
@@ -85,7 +85,7 @@ flash: $(TARGET).hex
 	@echo HEX2COM...
 	@sleep 2
 	@echo "A:LOAD $(TARGET)" > /dev/ttyUSB0
-	@$(SERIAL) -load cpm8266 -sercfg $(EMULATIONBAUD)
+	@$(SERIAL) 
 
 upload: 
 #	@echo -n "[UPLOAD SOURCES] "
