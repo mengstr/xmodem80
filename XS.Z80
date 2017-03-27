@@ -327,7 +327,7 @@ CONOUT:	jp	0ff0ch	; Write the character in C to the screen
 ;
 ; Message strings
 ;
-msgHeader: DB 	'CP/M XR - Xmodem Send v0.1 / SmallRoomLabs 2017',CR,LF,0
+msgHeader: DB 	'CP/M XS - Xmodem Send v0.1 / SmallRoomLabs 2017',CR,LF,0
 msgFailure:DB	CR,LF,'Transmssion failed',CR,LF,0
 msgCancel: DB	CR,LF,'Transmission cancelled',CR,LF,0
 msgSucces1:DB	CR,LF,'File ',0
