@@ -14,13 +14,6 @@ DFCBcr:	EQU 	DFCB+32 ; Current record
 dbuf:	EQU	0080h
 
 ;
-; BIOS vectors
-;
-CONST:	EQU 	0f106h	; A=0 if no character is ready, 0FFh if one is
-CONIN:	EQU	0f109h	; Wait until character ready available and return in A
-CONOUT:	EQU	0f10ch	; Write the character in C to the screen
-
-;
 ; BDOS function codes
 ;
 ;WBOOT:	 EQU	0	; System Reset
@@ -78,6 +71,11 @@ CAN:	EQU	'X'-40h	; ^X = Cancel
 ; Start of code
 ;
 	ORG 0100h
+
+	ld	A,(2)	; High part of BIOS Warm Boot address
+	ld	(CONST+2),A	; Update jump target addressed
+	ld	(CONIN+2),A	; ...
+	ld	(CONOUT+2),A	; ...
 
 	ld	(oldSP),SP
 	ld	SP,stackend
@@ -200,11 +198,11 @@ Done:
 	call	CloseFile
 	ld	C,ACK		; Tell uploader we're done
 	call	CONOUT
-	ld 	HL,msgSuccess1	; Print success message and filename
+	ld 	HL,msgSucces1	; Print success message and filename
 	call	PrintString0
 	call	PrintFilename
-	ld 	HL,msgSuccess2
-	call 	PrintString0	; Prints message and exits from program
+	ld 	HL,msgSucces2
+	call 	PrintString0
 	jp	Exit
 
 FailCreateFile:
@@ -215,12 +213,12 @@ FailCreateFile:
 	jp	Exit
 
 FailWrite:
-	ld	HL,msgFailWrite
+	ld	HL,msgFailWrt
 	jp	Die
 
 NoFileName:
 	ld 	HL,msgNoFile
-	call 	PrintString0	; Prints message and exits from program
+	call 	PrintString0
 	jp	Exit
 
 Failure:
@@ -334,16 +332,22 @@ PFnoDrive:
 	call	PrintNoSpaceB
 	ret
 
+;
+; BIOS jump table vectors to be patched
+;
+CONST:	jp 	0ff06h	; A=0 if no character is ready, 0FFh if one is
+CONIN:	jp	0ff09h	; Wait until character ready available and return in A
+CONOUT:	jp	0ff0ch	; Write the character in C to the screen
 
 ;
 ; Message strings
 ;
 msgHeader: DB 	'CP/M XR - Xmodem receive v0.1 / SmallRoomLabs 2017',CR,LF,0
-msgFailWrite:DB	CR,LF,'Failed writing to disk',CR,LF,0
+msgFailWrt:DB	CR,LF,'Failed writing to disk',CR,LF,0
 msgFailure:DB	CR,LF,'Transmssion failed',CR,LF,0
 msgCancel: DB	CR,LF,'Transmission cancelled',CR,LF,0
-msgSuccess1:DB	CR,LF,'File ',0
-msgSuccess2:DB	' received successfully',CR,LF,0
+msgSucces1:DB	CR,LF,'File ',0
+msgSucces2:DB	' received successfully',CR,LF,0
 msgFailCre:DB	'Failed creating file named ',0
 msgNoFile: DB	'Filename expeced',CR,LF,0
 msgCRLF:   DB	CR,LF,0

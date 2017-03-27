@@ -14,13 +14,6 @@ DFCBcr:	EQU 	DFCB+32 ; Current record
 dbuf:	EQU	0080h
 
 ;
-; BIOS vectors
-;
-CONST:	EQU 	0f106h	; A=0 if no character is ready, 0FFh if one is
-CONIN:	EQU	0f109h	; Wait until character ready available and return in A
-CONOUT:	EQU	0f10ch	; Write the character in C to the screen
-
-;
 ; BDOS function codes
 ;
 ;WBOOT:	 EQU	0	; System Reset
@@ -78,6 +71,11 @@ CAN:	EQU	'X'-40h	; ^X = Cancel
 ; Start of code
 ;
 	ORG 0100h
+
+	ld	A,(2)	; High part of BIOS Warm Boot address
+	ld	(CONST+2),A	; Update jump target addressed
+	ld	(CONIN+2),A	; ...
+	ld	(CONOUT+2),A	; ...
 
 	ld	(oldSP),SP
 	ld	SP,stackend
@@ -175,7 +173,6 @@ csloop:	add	A,(HL)		; Just add up the bytes
 
 	ret
 
-
 CloseFile:
 	ld  	DE,DFCB		; Close the file
 	ld 	C,CLOSEFIL
@@ -195,10 +192,10 @@ DoneTmo:
  	ld 	A,1
  	call	GetCharTmo	; Delay 1 second
 
-	ld 	HL,msgSuccess1	; Print success message and filename
+	ld 	HL,msgSucces1	; Print success message and filename
 	call	PrintString0
 	call	PrintFilename
-	ld 	HL,msgSuccess2
+	ld 	HL,msgSucces2
 	jp	Die
 
 FailOpenFile:
@@ -321,13 +318,20 @@ PFnoDrive:
 	ret
 
 ;
+; BIOS jump table vectors to be patched
+;
+CONST:	jp 	0ff06h	; A=0 if no character is ready, 0FFh if one is
+CONIN:	jp	0ff09h	; Wait until character ready available and return in A
+CONOUT:	jp	0ff0ch	; Write the character in C to the screen
+
+;
 ; Message strings
 ;
 msgHeader: DB 	'CP/M XR - Xmodem Send v0.1 / SmallRoomLabs 2017',CR,LF,0
 msgFailure:DB	CR,LF,'Transmssion failed',CR,LF,0
 msgCancel: DB	CR,LF,'Transmission cancelled',CR,LF,0
-msgSuccess1:DB	CR,LF,'File ',0
-msgSuccess2:DB	' sent successfully',CR,LF,0
+msgSucces1:DB	CR,LF,'File ',0
+msgSucces2:DB	' sent successfully',CR,LF,0
 msgFailOpn:DB	'Failed opening file ',0
 msgNoFile: DB	'Filename expeced',CR,LF,0
 msgCRLF:   DB	CR,LF,0
